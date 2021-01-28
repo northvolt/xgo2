@@ -249,11 +249,8 @@ func compile(image string, config *ConfigFlags, flags *BuildFlags, folder string
 		usesModules = !os.IsNotExist(err)
 
 		// Iterate over all the local libs and export the mount points
-		if os.Getenv("GOPATH") == "" && !usesModules {
-			log.Fatalf("No $GOPATH is set or forwarded to xgo")
-		}
 		if !usesModules {
-			for _, gopath := range strings.Split(os.Getenv("GOPATH"), string(os.PathListSeparator)) {
+			for _, gopath := range strings.Split(gopath(), string(os.PathListSeparator)) {
 				// Since docker sandboxes volumes, resolve any symlinks manually
 				sources := filepath.Join(gopath, "src")
 				_ = filepath.Walk(sources, func(path string, info os.FileInfo, err error) error {
@@ -327,7 +324,7 @@ func compile(image string, config *ConfigFlags, flags *BuildFlags, folder string
 	if usesModules {
 		fmt.Println("Enabled Go module support")
 		args = append(args, []string{"-e", "GO111MODULE=on"}...)
-		args = append(args, []string{"-v", os.Getenv("GOPATH") + ":/go"}...)
+		args = append(args, []string{"-v", gopath() + ":/go"}...)
 		fmt.Println("mount GOPATH ", os.Getenv("GOPATH"))
 		// Map this repository to the /source folder
 		absRepository, err := filepath.Abs(config.Repository)
@@ -353,6 +350,15 @@ func compile(image string, config *ConfigFlags, flags *BuildFlags, folder string
 
 	args = append(args, []string{image, config.Repository}...)
 	return run(exec.Command("docker", args...))
+}
+
+func gopath() string {
+	p := os.Getenv("GOPATH")
+	if p != "" {
+		return p
+
+	}
+	return os.Getenv("HOME") + "/go"
 }
 
 // compileContained cross builds a requested package according to the given build
